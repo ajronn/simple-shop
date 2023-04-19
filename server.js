@@ -1,37 +1,47 @@
-require('dotenv').config()
-
-const express = require('express')
-const app = express()
-const jwt = require('jsonwebtoken')
-
-app.use(express.json())
+require("dotenv").config();
+const axios = require("axios");
+const express = require("express");
+const app = express();
+const jwt = require("jsonwebtoken");
+app.use(express.json());
 
 const posts = [
   {
-    username: 'Kyle',
-    title: 'Post 1'
+    username: "Kyle",
+    title: "Post 1",
   },
   {
-    username: 'Jim',
-    title: 'Post 2'
-  }
-]
+    username: "Jim",
+    title: "Post 2",
+  },
+];
 
-app.get('/posts', authenticateToken, (req, res) => {
-  res.json(posts.filter(post => post.username === req.user.name))
-})
+async function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
-  if (token == null) return res.sendStatus(401)
+  const { data } = await axios.post(
+    "http://localhost:4000/blacklist/verify",
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (token == null || !data.isCorrect) return res.sendStatus(401);
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-    console.log(err)
-    if (err) return res.sendStatus(403)
-    req.user = user
-    next()
-  })
+    if (err) return res.sendStatus(403);
+
+    req.user = user;
+    next();
+  });
 }
 
-app.listen(3000)
+app.get("/posts", authenticateToken, (req, res) => {
+  res.json(posts.filter((post) => post.username === req.user.name));
+});
+
+app.listen(3000);
